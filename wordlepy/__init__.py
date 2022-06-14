@@ -5,11 +5,12 @@ from collections import Counter
 
 
 class Wordle:
-    def __init__(self):
+    def __init__(self, dont=False):
         self.getWordsList()
         self.letters_possibilities = {i: list({chr(97+j) for j in range(26)}) for i in range(5)}
         self.constraint_letters = []
         self.guesses = 0
+        self.dont = dont
         word = self.nextWord()
         print("Picking a word out of the {} possibilities…".format(len(self.words)))
         print("> {}".format(word))
@@ -94,7 +95,7 @@ class Wordle:
         self.filterWords()
         freqs = self.getLetterFreqs()
         wordscores = self.rankWords(freqs)
-        nextword = sorted(wordscores, key=lambda x: wordscores[x], reverse=True)[0]
+        nextword = sorted(wordscores, key=lambda x: wordscores[x], reverse=(not self.dont))[0]
         self.guesses += 1
         return nextword
         
