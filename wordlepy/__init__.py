@@ -36,10 +36,9 @@ class Wordle:
     
     def getWordsList(self):
         mainpage = requests.get("https://www.nytimes.com/games/wordle/index.html")
-        m = re.search(re.compile("window.wordle.hash = '([^']+)';"), mainpage.content.decode())
-
-        data = requests.get("https://www.nytimes.com/games/wordle/main.{}.js".format(m.group(1)))
-        m = re.search(re.compile("var ko=(\\[[^\\]]+\\])"), data.content.decode())
+        m = re.search(re.compile('src="https://www\.nytimes\.com/games-assets/v2/wordle\.([^"]+).js"'), mainpage.content.decode())
+        data = requests.get("https://www.nytimes.com/games-assets/v2/wordle.{}.js".format(m.group(1)))
+        m = re.search(re.compile("var z=(\\[[^\\]]+\\])"), data.content.decode())
         self.words = json.loads(m.group(1))
         
     # We clean up the list of words we currently have, to remove the latest try and clean up based on feedback
