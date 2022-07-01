@@ -1,11 +1,20 @@
 import requests
 import re
 import json
+import functools
 from collections import Counter
+
+@functools.cache
+def getWordsList():
+    mainpage = requests.get("https://www.nytimes.com/games/wordle/index.html")
+    m = re.search(re.compile('src="https://www\.nytimes\.com/games-assets/v2/wordle\.([^"]+).js"'), mainpage.content.decode())
+    data = requests.get("https://www.nytimes.com/games-assets/v2/wordle.{}.js".format(m.group(1)))
+    m = re.findall(re.compile("[a-zA-Z]=(\\[[^\\]]+\\])"), data.content.decode())
+    return json.loads(m[0]), json.loads(m[1])
 
 class Wordle:
     def __init__(self, dont=False, write_words=None):
-        self.getWordsList()
+        self.winning_words,  self.allowed_words = getWordsList()
         if write_words != None:
             try:
                 with open(f"{write_words}/winning_words.json", "w+") as f:
@@ -20,6 +29,8 @@ class Wordle:
         self.constraint_letters = []
         self.guesses = 0
         self.dont = dont
+
+    def playInteractive(self):
         word = self.nextWord()
         print("Picking a word out of the {} possibilities…".format(len(self.winning_words)))
         print("> {}".format(word))
@@ -30,26 +41,40 @@ class Wordle:
                 continue
             if response.upper() == response and '*' not in response:
                 print("Congrats, you found the solution '{}' in {} guesses!".format(word.upper(), self.guesses))
-                break
+                return self.guesses
             word = self.nextWord(word, response)
             print("Picking a word out of the {} possibilities…".format(len(self.winning_words)))
             print("> {}".format(word))
             if len(self.winning_words) <= 1:
                 print("Congrats, you found the solution '{}' in {} guesses!".format(word.upper(), self.guesses))
-                break
+                return self.guesses
+    
+    def playAutomatically(self, solution):
+        word = self.nextWord()
+        print("Picking a word out of the {} possibilities…".format(len(self.winning_words)))
+        print("> {}".format(word))
+        while True:
+            feedback = []
+            for i,l in enumerate(word):
+                if solution[i] == l:
+                    feedback.append(l.upper())
+                elif l in solution:
+                    feedback.append(l.lower())
+                else:
+                    feedback.append("*")
+            feedback = ''.join(feedback)
+            print(f"Response from wordle:\n< {feedback}")
+            if feedback.upper() == feedback and '*' not in feedback:
+                print("Congrats, you found the solution '{}' in {} guesses!".format(feedback.upper(), self.guesses))
+                return self.guesses
+            word = self.nextWord(word, feedback)
+            print("Picking a word out of the {} possibilities…".format(len(self.winning_words)))
+            print("> {}".format(word))
 
     def getLetterFreqs(self):
         return [
             dict(Counter([word[i] for word in self.winning_words]).most_common())
         for i in range(5)]
-
-    def getWordsList(self):
-        mainpage = requests.get("https://www.nytimes.com/games/wordle/index.html")
-        m = re.search(re.compile('src="https://www\.nytimes\.com/games-assets/v2/wordle\.([^"]+).js"'), mainpage.content.decode())
-        data = requests.get("https://www.nytimes.com/games-assets/v2/wordle.{}.js".format(m.group(1)))
-        m = re.findall(re.compile("[a-zA-Z]=(\\[[^\\]]+\\])"), data.content.decode())
-        self.winning_words = json.loads(m[0])
-        self.allowed_words = json.loads(m[1])
 
     # We clean up the list of words we currently have, to remove the latest try and clean up based on feedback
     # eg filterOut(words, "slate", "*latE") means we got the E right, lat wonr location and s wrong
