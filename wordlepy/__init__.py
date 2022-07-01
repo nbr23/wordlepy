@@ -3,16 +3,25 @@ import re
 import json
 from collections import Counter
 
-
 class Wordle:
-    def __init__(self, dont=False):
+    def __init__(self, dont=False, write_words=None):
         self.getWordsList()
+        if write_words != None:
+            try:
+                with open(f"{write_words}/winning_words.json", "w+") as f:
+                    f.write(json.dumps(self.winning_words))
+                with open(f"{write_words}/allowed_words.json", "w+") as f:
+                    f.write(json.dumps(self.allowed_words))
+            except Exception as e:
+                print(e)
+                pass
+
         self.letters_possibilities = {i: list({chr(97+j) for j in range(26)}) for i in range(5)}
         self.constraint_letters = []
         self.guesses = 0
         self.dont = dont
         word = self.nextWord()
-        print("Picking a word out of the {} possibilities…".format(len(self.words)))
+        print("Picking a word out of the {} possibilities…".format(len(self.winning_words)))
         print("> {}".format(word))
         while True:
             response = input("Response from wordle (* for missed letter, lower case for correct letter, wrong location, capital for correct letter and location:\n# ")
@@ -23,23 +32,24 @@ class Wordle:
                 print("Congrats, you found the solution '{}' in {} guesses!".format(word.upper(), self.guesses))
                 break
             word = self.nextWord(word, response)
-            print("Picking a word out of the {} possibilities…".format(len(self.words)))
+            print("Picking a word out of the {} possibilities…".format(len(self.winning_words)))
             print("> {}".format(word))
-            if len(self.words) <= 1:
+            if len(self.winning_words) <= 1:
                 print("Congrats, you found the solution '{}' in {} guesses!".format(word.upper(), self.guesses))
                 break
 
     def getLetterFreqs(self):
         return [
-            dict(Counter([word[i] for word in self.words]).most_common())
+            dict(Counter([word[i] for word in self.winning_words]).most_common())
         for i in range(5)]
 
     def getWordsList(self):
         mainpage = requests.get("https://www.nytimes.com/games/wordle/index.html")
         m = re.search(re.compile('src="https://www\.nytimes\.com/games-assets/v2/wordle\.([^"]+).js"'), mainpage.content.decode())
         data = requests.get("https://www.nytimes.com/games-assets/v2/wordle.{}.js".format(m.group(1)))
-        m = re.search(re.compile("var [A-Za-z]=(\\[[^\\]]+\\])"), data.content.decode())
-        self.words = json.loads(m.group(1))
+        m = re.findall(re.compile("[a-zA-Z]=(\\[[^\\]]+\\])"), data.content.decode())
+        self.winning_words = json.loads(m[0])
+        self.allowed_words = json.loads(m[1])
 
     # We clean up the list of words we currently have, to remove the latest try and clean up based on feedback
     # eg filterOut(words, "slate", "*latE") means we got the E right, lat wonr location and s wrong
@@ -75,14 +85,14 @@ class Wordle:
     def filterWords(self):
         pattern = self.letterSetsToRegex()
         newwords = []
-        for word in self.words:
+        for word in self.winning_words:
             if sum([l in word for l in self.constraint_letters]) == len(self.constraint_letters) and re.match(pattern, word):
                 newwords.append(word)
-        self.words = newwords
+        self.winning_words = newwords
         
     def rankWords(self, freqs):
         wordscores = {}
-        for word in self.words:
+        for word in self.winning_words:
             wordscores[word] = 0
             for i in range(5):
                 wordscores[word] += freqs[i][word[i]]
