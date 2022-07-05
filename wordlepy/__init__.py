@@ -9,7 +9,7 @@ def getWordsList():
     mainpage = requests.get("https://www.nytimes.com/games/wordle/index.html")
     m = re.search(re.compile('src="https://www\.nytimes\.com/games-assets/v2/wordle\.([^"]+).js"'), mainpage.content.decode())
     data = requests.get("https://www.nytimes.com/games-assets/v2/wordle.{}.js".format(m.group(1)))
-    m = re.findall(re.compile("[a-zA-Z]=(\\[[^\\]]+\\])"), data.content.decode())
+    m = re.findall(re.compile("=(\\[[^\\]]+\\])"), data.content.decode())
     return json.loads(m[0]), json.loads(m[1])
 
 class Wordle:
